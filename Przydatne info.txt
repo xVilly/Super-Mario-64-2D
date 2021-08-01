@@ -1,0 +1,2 @@
+https://gamedev.stackexchange.com/questions/18302/2d-platformer-collisions
+https://stackoverflow.com/questions/3120357/get-closest-point-to-a-line
