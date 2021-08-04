@@ -101,6 +101,15 @@ namespace Platformer
             "Player/ledge",
             "Player/ledge-1",
             "Player/ledge-2",
+
+            "Player/run-1",
+            "Player/run-2",
+            "Player/run-3",
+            "Player/run-4",
+            "Player/run-5",
+            "Player/run-6",
+            "Player/run-7",
+
         };
 
         // Hardcoded textures

@@ -38,6 +38,21 @@ namespace Platformer
             collision = false
         };
 
+        public static ParticleTemplate runningDust = new ParticleTemplate()
+        {
+            textures = new List<Texture2D>() { SpriteManager.GetParticleTexture(0) },
+            velocity = Vector2.Zero,
+            speed = 1.5f,
+            angularVelocity = 1.0f,
+            color = Color.Gray,
+            minSize = 0.9f,
+            maxSize = 1.4f,
+            time = 7,
+            count = 5,
+            gravity = true,
+            collision = false
+        };
+
     }
     public class Particle
     {

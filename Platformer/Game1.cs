@@ -5,11 +5,14 @@ using System;
 using System.Collections.Generic;
 using Platformer.Helpers;
 using System.Diagnostics;
+using Penumbra;
 
 namespace Platformer
 {
     public class Game1 : Game
     {
+
+        public static PenumbraComponent penumbra;
         // Game settings (constants)
         public const bool MAP_HITBOX = false;
         public const bool ENTITY_HITBOX = false;
@@ -34,15 +37,15 @@ namespace Platformer
         private SpriteFont defaultFont;
         private Entity player;
 
-
-
-
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
             IsFixedTimeStep = true;
+
+            penumbra = new PenumbraComponent(this);
+            Components.Add(penumbra);
         }
 
         protected override void Initialize()
@@ -51,11 +54,20 @@ namespace Platformer
             _graphics.PreferredBackBufferHeight = 720;
             _graphics.ApplyChanges();
 
+            penumbra.AmbientColor = new Color(255, 255, 255, 150);
+            PointLight sun = new PointLight();
+            sun.Position = new Vector2(640, 0);
+            sun.Scale = new Vector2(8000, 2500);
+            sun.Intensity = 1f;
+            sun.ShadowType = ShadowType.Occluded;
+            penumbra.Lights.Add(sun);
+
             base.Initialize();
         }
 
         protected override void LoadContent()
         {
+
             basicEffect = new BasicEffect(GraphicsDevice);
             basicEffect.World = Matrix.CreateOrthographicOffCenter(0, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height, 0, 0, 1);
             Camera.mapPosition = new Vector2(0, 0);
@@ -80,6 +92,12 @@ namespace Platformer
 
 
             player = new Entity(new Vector2(150,-600));
+            Camera.Setup(player);
+
+            foreach (MapObject solidObject in mapObjects)
+            {
+                solidObject.Initialize(GraphicsDevice);
+            }
         }
 
         protected override void Update(GameTime gameTime)
@@ -89,12 +107,10 @@ namespace Platformer
                 Exit();
             InputManager.Update();
             Camera.Update(elapsed);
-            Camera.targetPosition = Maths.SmoothDamp(Camera.mapPosition, player.GetMovementPoint(), ref Camera.cameraVelocity, 2.0f, 50.0f, 1.0f);
             foreach (ActionWindow actionWindow in ActionWindow.actionWindows)
             {
                 actionWindow.Update();
             }
-
             player.Update();
             // GUI Input
             if (Keyboard.GetState().IsKeyDown(Keys.F8))
@@ -183,6 +199,7 @@ namespace Platformer
             {
                 engine.Update();
             }
+            
 
 
             base.Update(gameTime);
@@ -190,15 +207,25 @@ namespace Platformer
 
         protected override void Draw(GameTime gameTime)
         {
+            penumbra.BeginDraw();
+
             GraphicsDevice.Clear(Color.CornflowerBlue);
 
             spriteBatch.Begin();
-
-            foreach(MapObject x in mapObjects)
+            DateTime d1 = DateTime.Now;
+            basicEffect.TextureEnabled = true;
+            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+            int drewObjects = 0;
+            foreach (MapObject solidObject in mapObjects)
             {
-                x.Draw(spriteBatch, GraphicsDevice, basicEffect);
+                if (solidObject.IsInView())
+                {
+                    drewObjects++;
+                    solidObject.Draw(spriteBatch, GraphicsDevice, basicEffect);
+                }
             }
 
+            Debug.WriteLine("After Object Draw: " + (DateTime.Now - d1).TotalMilliseconds.ToString());
             player.Draw(spriteBatch, defaultTexture);
 
             if (DEBUG && DEBUG_DISPLAY == 1)
@@ -216,6 +243,7 @@ namespace Platformer
             }
 
             spriteBatch.End();
+
 
             base.Draw(gameTime);
         }

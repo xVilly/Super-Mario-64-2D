@@ -29,7 +29,8 @@ namespace Platformer
         DOUBLEPUNCH,
         KICK,
         LEDGE,
-        LEDGESTAND
+        LEDGESTAND,
+        RUNNING
     }
     public class Animation
     {
@@ -74,6 +75,7 @@ namespace Platformer
         public Animation kick;
         public Animation ledge;
         public Animation ledgestand;
+        public Animation running;
 
         private Animation current;
         private int speed;
@@ -166,6 +168,9 @@ namespace Platformer
                     break;
                 case PlayerAnimations.LEDGESTAND:
                     current = ledgestand;
+                    break;
+                case PlayerAnimations.RUNNING:
+                    current = running;
                     break;
                 default:
                     return;

@@ -27,7 +27,8 @@ namespace Platformer
         KICK,
         LEDGE,
         BONK,
-        SLIDEKICK
+        SLIDEKICK,
+        RUNNING
     }
 
     public enum CollisionType
@@ -69,7 +70,8 @@ namespace Platformer
     public class Entity
     {
         // Entity Constants
-        public const double MAX_WALKING_VEL = 3.5;
+        public const double MIN_RUNNING_VEL = 3.5;
+        public const double MAX_RUNNING_VEL = 4.5;
         public const double MAX_WALKING_VEL_CROUCH = 1.5;
         public const double MAX_HORIZONTAL_VEL = 50;
         public const double MAX_VERTICAL_VEL = 50;
@@ -140,6 +142,7 @@ namespace Platformer
         public ActionWindow bonkWindow = new ActionWindow(90);
         public ActionWindow slideKickWindow = new ActionWindow(30);
         public ActionWindow slideKickNoActionWindow = new ActionWindow(30);
+        public ActionWindow runningWindow = new ActionWindow(60);
 
 
         // Actions variables
@@ -181,6 +184,8 @@ namespace Platformer
 
         private bool slideKick = false;
 
+        private bool runningStart = false;
+
         private bool wasPressedJump = false;
         private bool wasPressedCrouch = false;
 
@@ -190,6 +195,7 @@ namespace Platformer
 
         // Particle engines reserved for player
         ParticleEngine _particleBonk;
+        ParticleEngine _particleRunDust;
 
 
     public Entity(Vector2 startPosition)
@@ -223,9 +229,12 @@ namespace Platformer
             animator.kick = new Animation(70, 2, 75, false);
             animator.ledge = new Animation(73, 1, 500);
             animator.ledgestand = new Animation(74, 1, 100, false);
+            animator.running = new Animation(76, 7, 45);
 
             _particleBonk = new ParticleEngine(Vector2.Zero);
             _particleBonk.CurrentTemplate = ParticleTemplates.bonk;
+            _particleRunDust = new ParticleEngine(Vector2.Zero);
+            _particleRunDust.CurrentTemplate = ParticleTemplates.runningDust;
 
             animator.SwitchState(PlayerAnimations.IDLE);
             entityState = EntityState.IDLE;
@@ -310,6 +319,9 @@ namespace Platformer
                 case EntityState.SLIDEKICK:
                     animator.SwitchState(PlayerAnimations.SLIDEKICK);
                     break;
+                case EntityState.RUNNING:
+                    animator.SwitchState(PlayerAnimations.RUNNING);
+                    break;
                 default:
                     animator.SwitchState(PlayerAnimations.IDLE);
                     break;
@@ -331,55 +343,79 @@ namespace Platformer
         public void Update()
         {
             animator.Update();
+            #region Player - Camera Input
+            if (Camera.GetMode() != CameraMode.LOCKED) {
+                if (InputManager.CameraMode.OnPress())
+                    Camera.ChangeMode(Camera.GetMode() == CameraMode.LAKITU ? CameraMode.MARIO : CameraMode.LAKITU);
+                if (InputManager.CameraLeft.OnPress()){
+                    if (Camera.cameraOffset == CameraOffset.NONE)
+                        Camera.cameraOffset = CameraOffset.LEFT;
+                    else if (Camera.cameraOffset == CameraOffset.RIGHT)
+                        Camera.cameraOffset = CameraOffset.NONE;
+                }
+                if (InputManager.CameraRight.OnPress()){
+                    if (Camera.cameraOffset == CameraOffset.NONE)
+                        Camera.cameraOffset = CameraOffset.RIGHT;
+                    else if (Camera.cameraOffset == CameraOffset.LEFT)
+                        Camera.cameraOffset = CameraOffset.NONE;
+                }
+                if (InputManager.CameraUp.OnPress()){
+                    if (Camera.cameraZoom == CameraZoom.NORMAL)
+                        Camera.ChangeZoom(CameraZoom.IN);
+                    else if (Camera.cameraZoom == CameraZoom.OUT)
+                        Camera.ChangeZoom(CameraZoom.NORMAL);
+                }
+                if (InputManager.CameraDown.OnPress()){
+                    if (Camera.cameraZoom == CameraZoom.NORMAL)
+                        Camera.ChangeZoom(CameraZoom.OUT);
+                    else if (Camera.cameraZoom == CameraZoom.IN)
+                        Camera.ChangeZoom(CameraZoom.NORMAL);
+                }
 
+            }
+            #endregion
             #region Player - Movement Input
             float stepValue = 0.5f;
             horizontalInput = false;
-            if (!onGround)
-                stepValue = 0.075f;
-            else if (onSlope)
-                stepValue = 0.5f - (float)Math.Max(0f, collisionObject.GetSlopeObject().incline * 0.55f);
             if (blockDefaultMovementInput)
                 stepValue = 0;
-            if (InputManager.HorizontalInput < 0)
-            {
-                if (!crouch)
-                {
-                    if (velocity.X > -Entity.MAX_WALKING_VEL)
-                        velocity += new Vector2(stepValue * InputManager.HorizontalInput, 0);
-
-                    if (velocity.X > 3.0f && dirChangeFrames == 0 && GetState() == EntityState.WALK)
+            if (InputManager.HorizontalInput != 0) {
+                horizontalInput = true;
+                inputDirection = InputManager.HorizontalInput > 0 ? true : false;
+                if (crouch){
+                    if (Math.Abs(velocity.X) < Entity.MAX_WALKING_VEL_CROUCH * Math.Abs(InputManager.HorizontalInput))
+                        velocity += new Vector2(stepValue * 0.5f * InputManager.HorizontalInput, 0);
+                } else if (!onGround) {
+                    velocity += new Vector2(stepValue * 0.15f * InputManager.HorizontalInput, 0);
+                } else {
+                    if (entityState != EntityState.RUNNING){
+                        if (Math.Abs(velocity.X) < Entity.MIN_RUNNING_VEL * Math.Abs(InputManager.HorizontalInput))
+                            velocity += new Vector2(stepValue * InputManager.HorizontalInput, 0);
+                    } else {
+                        if (Math.Abs(velocity.X) < Entity.MAX_RUNNING_VEL * Math.Abs(InputManager.HorizontalInput))
+                            velocity += new Vector2(stepValue * InputManager.HorizontalInput, 0);
+                    }
+                    if (Math.Abs(velocity.X) > 4.0f && dirChangeFrames == 0 && GetState() == EntityState.RUNNING && !Maths.sameSign(velocity.X, InputManager.HorizontalInput))
                         dirChangeFrames = 1;
                 }
-                else
-                {
-                    if (velocity.X > -Entity.MAX_WALKING_VEL_CROUCH)
-                        velocity += new Vector2(stepValue * InputManager.HorizontalInput, 0);
-                }
-                horizontalInput = true;
-                inputDirection = false;
             }
-            else if (InputManager.HorizontalInput > 0)
-            {
-                if (!crouch)
-                {
-                    if (velocity.X < Entity.MAX_WALKING_VEL)
-                        velocity += new Vector2(stepValue * InputManager.HorizontalInput, 0);
-
-                    if (velocity.X < -3.0f && dirChangeFrames == 0 && GetState() == EntityState.WALK)
-                        dirChangeFrames = 1;
-                }
-                else
-                {
-                    if (velocity.X < Entity.MAX_WALKING_VEL_CROUCH)
-                        velocity += new Vector2(stepValue * InputManager.HorizontalInput, 0);
-                }
-                horizontalInput = true;
-                inputDirection = true;
+            if (!runningStart && Math.Abs(velocity.X) >= Entity.MIN_RUNNING_VEL - 0.5f && entityState == EntityState.WALK && onGround && Maths.sameSign(InputManager.HorizontalInput, velocity.X)){
+                runningStart = true;
+                runningWindow.Start();
+            } else if (runningStart && (Math.Abs(velocity.X) < Entity.MIN_RUNNING_VEL - 0.5f || entityState != EntityState.WALK || !onGround || !Maths.sameSign(InputManager.HorizontalInput, velocity.X))){
+                runningStart = false;
+                runningWindow.Active = false;
+            } else if (runningStart && !runningWindow.Active &&
+                Math.Abs(velocity.X) >= Entity.MIN_RUNNING_VEL - 0.5f && entityState == EntityState.WALK && onGround && Maths.sameSign(InputManager.HorizontalInput, velocity.X)) {
+                runningStart = false;
+                ChangeState(EntityState.RUNNING);
+                velocity.X += velocity.X > 0 ? 1.0f : -1.0f;
+            } else if (entityState == EntityState.RUNNING && Math.Abs(velocity.X) >= 4.0f) {
+                _particleRunDust.EmitterLocation = Camera.ConvertPos(GetMovementPoint());
+                _particleRunDust.SpawnParticles();
             }
             #endregion
             #region Player - All Movement Actions
-            bool _StartedAction = false;
 
 
             // Action: Dirchange (Player quick turn on ground)
@@ -1063,9 +1099,13 @@ namespace Platformer
 
 
             // change entity state
-            if (Math.Abs(velocity.X) > 0.5 && onGround && GetState() != EntityState.WALK && !blockDefaultMovementInput && !crouch)
+            if (Math.Abs(velocity.X) > 0.5 && Math.Abs(velocity.X) < Entity.MIN_RUNNING_VEL + 0.5f && GetState() != EntityState.WALK && onGround && !blockDefaultMovementInput && !crouch)
             {
                 ChangeState(EntityState.WALK);
+            }
+            else if (Math.Abs(velocity.X) > Entity.MIN_RUNNING_VEL + 0.5f && onGround && GetState() != EntityState.RUNNING && !blockDefaultMovementInput && !crouch)
+            {
+                ChangeState(EntityState.RUNNING);
             }
             else if (Math.Abs(velocity.X) <= 0.5 && onGround && GetState() != EntityState.IDLE && !blockDefaultMovementInput && !crouch)
             {
@@ -1174,8 +1214,8 @@ namespace Platformer
                 else if (obj.type == SolidObject.Slope)
                 {
                     SlopeObject slope = obj.GetSlopeObject();
-                    bool _feetC = Maths.PointInTriangle(GetMovementPoint(), slope.GetTrianglePointsRaw()[0], slope.GetTrianglePointsRaw()[1], slope.GetTrianglePointsRaw()[2]);
-                    bool _headC = Maths.PointInTriangle(GetHeadPoint(), slope.GetTrianglePointsRaw()[0], slope.GetTrianglePointsRaw()[1], slope.GetTrianglePointsRaw()[2]);
+                    bool _feetC = Maths.PointInTriangle(GetMovementPoint(), slope.GetVertices()[0], slope.GetVertices()[1], slope.GetVertices()[2]);
+                    bool _headC = Maths.PointInTriangle(GetHeadPoint(), slope.GetVertices()[0], slope.GetVertices()[1], slope.GetVertices()[2]);
                     bool _bodyC = GetHeadPoint().Y < slope.position.Y + slope.size.Y && GetMovementPoint().Y > slope.position.Y + slope.size.Y && GetMovementPoint().X >= slope.position.X && GetMovementPoint().X < slope.position.X + slope.size.X;
                     if (_bodyC || _feetC || _headC)
                     {
@@ -1186,7 +1226,7 @@ namespace Platformer
                             { // Landed on slope
                                 OnCollision(CollisionType.FLOOR_SLOPE, obj);
                                 collisionObject = obj;
-                                _pushBack = Maths.GetClosestPointOnLineSegment(slope.GetTrianglePointsRaw()[0], slope.GetTrianglePointsRaw()[2], GetMovementPoint()) - GetMovementPoint();
+                                _pushBack = Maths.GetClosestPointOnLineSegment(slope.GetVertices()[0], slope.GetVertices()[2], GetMovementPoint()) - GetMovementPoint();
                             }
                             else if (oldPosH.Y >= slope.position.Y + slope.size.Y) // Hit slope from bottom (with head)
                             {
@@ -1205,19 +1245,19 @@ namespace Platformer
                             }
                             else
                             {// Feet or Head was already inside slope (no movement) ==> try to push in nearest direction out of slope
-                                float _dB = Vector2.Distance(Maths.GetClosestPointOnLineSegment(slope.GetTrianglePointsRaw()[0], slope.GetTrianglePointsRaw()[2], GetMovementPoint()), GetMovementPoint());
+                                float _dB = Vector2.Distance(Maths.GetClosestPointOnLineSegment(slope.GetVertices()[0], slope.GetVertices()[2], GetMovementPoint()), GetMovementPoint());
                                 float _dT = slope.position.Y + slope.size.Y - GetHeadPoint().Y;
                                 float _dL = slope.position.X + slope.size.X - GetMovementPoint().X;
                                 if (Math.Abs(_dB) <= Math.Abs(_dL) || Math.Abs(_dT) <= Math.Abs(_dL))
                                 {
                                     if (_feetC && !_headC)
-                                        _pushBack = Maths.GetClosestPointOnLineSegment(slope.GetTrianglePointsRaw()[0], slope.GetTrianglePointsRaw()[2], GetMovementPoint()) - GetMovementPoint();
+                                        _pushBack = Maths.GetClosestPointOnLineSegment(slope.GetVertices()[0], slope.GetVertices()[2], GetMovementPoint()) - GetMovementPoint();
                                     else if (!_feetC && _headC)
                                         _pushBack.Y = _dT;
                                     else
                                     {
                                         if (Math.Abs(_dB) <= Math.Abs(_dT))
-                                            _pushBack = Maths.GetClosestPointOnLineSegment(slope.GetTrianglePointsRaw()[0], slope.GetTrianglePointsRaw()[2], GetMovementPoint()) - GetMovementPoint();
+                                            _pushBack = Maths.GetClosestPointOnLineSegment(slope.GetVertices()[0], slope.GetVertices()[2], GetMovementPoint()) - GetMovementPoint();
                                         else
                                             _pushBack.Y = _dT;
                                     }
@@ -1234,7 +1274,7 @@ namespace Platformer
                             { // Landed on slope
                                 OnCollision(CollisionType.FLOOR_SLOPE, obj);
                                 collisionObject = obj;
-                                _pushBack = Maths.GetClosestPointOnLineSegment(slope.GetTrianglePointsRaw()[0], slope.GetTrianglePointsRaw()[2], GetMovementPoint()) - GetMovementPoint();
+                                _pushBack = Maths.GetClosestPointOnLineSegment(slope.GetVertices()[0], slope.GetVertices()[2], GetMovementPoint()) - GetMovementPoint();
                             }
                             else if (oldPosH.Y >= slope.position.Y + slope.size.Y) // Hit slope from bottom (with head)
                             {
@@ -1253,19 +1293,19 @@ namespace Platformer
                             }
                             else
                             {// Feet or Head was already inside slope (no movement) ==> try to push in nearest direction out of slope
-                                float _dB = Vector2.Distance(Maths.GetClosestPointOnLineSegment(slope.GetTrianglePointsRaw()[0], slope.GetTrianglePointsRaw()[2], GetMovementPoint()), GetMovementPoint());
+                                float _dB = Vector2.Distance(Maths.GetClosestPointOnLineSegment(slope.GetVertices()[0], slope.GetVertices()[2], GetMovementPoint()), GetMovementPoint());
                                 float _dT = slope.position.Y + slope.size.Y - GetHeadPoint().Y;
                                 float _dR = slope.position.X - GetMovementPoint().X;
                                 if (Math.Abs(_dB) <= Math.Abs(_dR) || Math.Abs(_dT) <= Math.Abs(_dR))
                                 {
                                     if (_feetC && !_headC)
-                                        _pushBack = Maths.GetClosestPointOnLineSegment(slope.GetTrianglePointsRaw()[0], slope.GetTrianglePointsRaw()[2], GetMovementPoint()) - GetMovementPoint();
+                                        _pushBack = Maths.GetClosestPointOnLineSegment(slope.GetVertices()[0], slope.GetVertices()[2], GetMovementPoint()) - GetMovementPoint();
                                     else if (!_feetC && _headC)
                                         _pushBack.Y = _dT;
                                     else
                                     {
                                         if (Math.Abs(_dB) <= Math.Abs(_dT))
-                                            _pushBack = Maths.GetClosestPointOnLineSegment(slope.GetTrianglePointsRaw()[0], slope.GetTrianglePointsRaw()[2], GetMovementPoint()) - GetMovementPoint();
+                                            _pushBack = Maths.GetClosestPointOnLineSegment(slope.GetVertices()[0], slope.GetVertices()[2], GetMovementPoint()) - GetMovementPoint();
                                         else
                                             _pushBack.Y = _dT;
                                     }
