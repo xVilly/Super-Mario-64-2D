@@ -8,6 +8,7 @@ using System.Diagnostics;
 
 namespace Platformer.Helpers
 {
+    
     public static class Maths
     {
         internal static float sign(Vector2 p1, Vector2 p2, Vector2 p3)
@@ -101,11 +102,64 @@ namespace Platformer.Helpers
             return rect.Contains(pt.ToPoint());
         }
 
-        internal static bool doOverlap(Rectangle RectA, Rectangle RectB)
+        internal static bool Overlap(Rectangle RectA, Rectangle RectB)
         {
             return (RectA.Left < RectB.Right && RectA.Right > RectB.Left &&
      RectA.Top > RectB.Bottom && RectA.Bottom < RectB.Top);
         }
+
+        internal static bool Overlap(Circle cir, Rectangle rect)
+        {
+            float rW = (rect.Width) / 2;
+            float rH = (rect.Height) / 2;
+            float distX = Math.Abs(cir.Center.X - (rect.Left + rW));
+            float distY = Math.Abs(cir.Center.Y - (rect.Top + rH));
+
+            if (distX >= cir.Radius + rW || distY >= cir.Radius + rH)
+                return false;
+            if (distX < rW || distY < rH)
+                return true;
+            distX -= rW;
+            distY -= rH;
+            if (distX * distX + distY * distY < cir.Radius * cir.Radius)
+                return true;
+            return false;
+        }
+
+        // Fast functions (no need for creating new rectangles/vectors/circles)
+        internal static bool FOverlap(float x1, float y1, float w1, float h1, float x2, float y2, float w2, float h2)
+        {
+            return (x1 < x2 + w2 && x1 + w1 > x2 && y1 > y2 + h2 && y1 + h1 < y2);
+        }
+
+        internal static bool FOverlap(float cx, float cy, float cr, float x, float y, float w, float h)
+        {
+            float rW = (w) / 2;
+            float rH = (h) / 2;
+            float distX = Math.Abs(cx - (x + rW));
+            float distY = Math.Abs(cy - (y + rH));
+
+            if (distX >= cr + rW || distY >= cr + rH)
+                return false;
+            if (distX < rW || distY < rH)
+                return true;
+            distX -= rW;
+            distY -= rH;
+            if (distX * distX + distY * distY < cr * cr)
+                return true;
+            return false;
+        }
+
+        internal static bool FOverlap(float x1, float y1, float r1, float x2, float y2, float r2)
+        {
+            return Math.Sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)) < r1 + r2;
+        }
+
+        internal static bool FPointInRectangle(float x, float y, float rx, float ry, float rw, float rh)
+        {
+            return x >= rx && x < rx + rw && y >= ry && y < ry + rh;
+        }
+        // ============================================================================
 
         internal static bool ArraySplitterFound(byte[] arr, byte[] splitter, int currentIndex)
         {

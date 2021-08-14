@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Platformer.Helpers;
+using Platformer.GUI;
 
 namespace Platformer
 {
@@ -42,7 +43,7 @@ namespace Platformer
         public static Vector2 cameraVelocity;
         public static Vector2 screenCenter;
 
-        public static Entity Actor;
+        public static Player Actor;
         public static Vector2 FollowPoint;
         public static float targetZoom = 1.0f;
 
@@ -51,12 +52,12 @@ namespace Platformer
         public static CameraZoom cameraZoom;
         public static CameraOffset cameraOffset;
 
-        public static void Setup(Entity _actor)
+        public static void Setup(Player _actor)
         {
             Actor = _actor;
-            cameraMode = CameraMode.LAKITU;
-            cameraZoom = CameraZoom.NORMAL;
-            cameraOffset = CameraOffset.NONE;
+            ChangeMode(CameraMode.LAKITU);
+            ChangeZoom(CameraZoom.NORMAL);
+            ChangeOffset(CameraOffset.NONE);
         }
 
         public static void Update(float elapsed)
@@ -114,6 +115,8 @@ namespace Platformer
         {
             savedCameraSetup = new CameraSetup() { mode = cameraMode, zoom = cameraZoom, offset = cameraOffset };
             cameraMode = CameraMode.LOCKED;
+            ImageWidget image = (ImageWidget)GUIManager.GetWidgetByName("GUI_GAMEWORLD_CAMERAMODE");
+            image.SetImage(SpriteManager.GetGUITexture(3), 48, 48);
         }
 
         public static void UnlockCamera()
@@ -122,6 +125,11 @@ namespace Platformer
                 cameraMode = savedCameraSetup.mode;
                 cameraZoom = savedCameraSetup.zoom;
                 cameraOffset = savedCameraSetup.offset;
+                ImageWidget image = (ImageWidget)GUIManager.GetWidgetByName("GUI_GAMEWORLD_CAMERAMODE");
+                if (cameraMode == CameraMode.LAKITU)
+                    image.SetImage(SpriteManager.GetGUITexture(4), 48, 48);
+                else if (cameraMode == CameraMode.MARIO)
+                    image.SetImage(SpriteManager.GetGUITexture(5), 48, 48);
             }
         }
 
@@ -133,7 +141,9 @@ namespace Platformer
         public static void ChangeMode(CameraMode _mode)
         {
             cameraMode = _mode;
+            ImageWidget image = (ImageWidget)GUIManager.GetWidgetByName("GUI_GAMEWORLD_CAMERAMODE");
             if (_mode == CameraMode.MARIO){
+                image.SetImage(SpriteManager.GetGUITexture(5), 48, 48);
                 if (cameraZoom == CameraZoom.IN)
                     targetZoom = 2.25f;
                 else if (cameraZoom == CameraZoom.NORMAL)
@@ -141,6 +151,7 @@ namespace Platformer
                 else if (cameraZoom == CameraZoom.OUT)
                     targetZoom = 1.5f;
             } else if (_mode == CameraMode.LAKITU) {
+                image.SetImage(SpriteManager.GetGUITexture(4), 48, 48);
                 if (cameraZoom == CameraZoom.IN)
                     targetZoom = 1.75f;
                 else if (cameraZoom == CameraZoom.NORMAL)
@@ -152,6 +163,23 @@ namespace Platformer
 
         public static void ChangeZoom(CameraZoom _zoom){
             cameraZoom = _zoom;
+            ImageWidget cup = (ImageWidget)GUIManager.GetWidgetByName("GUI_GAMEWORLD_CUP");
+            ImageWidget cdown = (ImageWidget)GUIManager.GetWidgetByName("GUI_GAMEWORLD_CDOWN");
+            switch (cameraZoom)
+            {
+                case CameraZoom.NORMAL:
+                    cup.SetVisible(false);
+                    cdown.SetVisible(false);
+                    break;
+                case CameraZoom.IN:
+                    cup.SetVisible(true);
+                    cdown.SetVisible(false);
+                    break;
+                case CameraZoom.OUT:
+                    cup.SetVisible(false);
+                    cdown.SetVisible(true);
+                    break;
+            }
             if (cameraMode == CameraMode.MARIO){
                 if (cameraZoom == CameraZoom.IN)
                     targetZoom = 2.25f;

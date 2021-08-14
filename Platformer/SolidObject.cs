@@ -9,13 +9,13 @@ using System.Diagnostics;
 
 namespace Platformer
 {
-    public enum SolidObject
+    public enum SolidObjectType
     {
         Rectangle = 0,
         Slope = 1
     }
 
-    public abstract class MapObject
+    public abstract class SolidObject
     {
         protected SlopeObject SlopeObject = null;
         protected RectObject RectObject = null;
@@ -23,18 +23,18 @@ namespace Platformer
         public Vector2 position;
         public Texture2D texture;
         public Vector2 size;
-        public SolidObject type;
+        public SolidObjectType type;
         public bool collision;
         public float Friction = 3.0f;
 
-        public MapObject(Vector2 startPosition)
+        public SolidObject(Vector2 startPosition)
         {
             collision = true;
             position = startPosition;
-            Game1.mapObjects.Add(this);
+            GameWorld.solidObjects.Add(this);
         }
 
-        public MapObject GetMapObject() { return this; }
+        public SolidObject GetMapObject() { return this; }
         public SlopeObject GetSlopeObject() { return SlopeObject; }
         public RectObject GetRectObject() { return RectObject; }
 
@@ -43,11 +43,11 @@ namespace Platformer
         public abstract void Draw(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, BasicEffect basicEffect);
 
         // MapObject static methods
-        public static MapObject GetObjectFromPos(Vector2 pos, bool collider = false)
+        public static SolidObject GetObjectFromPos(Vector2 pos, bool collider = false)
         {
-            foreach (MapObject obj in Game1.mapObjects)
+            foreach (SolidObject obj in GameWorld.solidObjects)
             {
-                if (obj.type == SolidObject.Slope)
+                if (obj.type == SolidObjectType.Slope)
                 {
                     SlopeObject slope = obj.GetSlopeObject();
                     if (Maths.PointInTriangle(pos, slope.GetVertices()[0], slope.GetVertices()[1], slope.GetVertices()[2]) && (!collider || (collider && obj.collision)))
@@ -79,7 +79,7 @@ namespace Platformer
         }
     }
 
-    public class RectObject : MapObject
+    public class RectObject : SolidObject
     {
         private VertexPositionTexture[] vertexData;
         private VertexBuffer vertexBuffer;
@@ -88,8 +88,8 @@ namespace Platformer
         {
             this.size = size;
             this.RectObject = this;
-            Game1.mapRectangles.Add(this);
-            type = SolidObject.Rectangle;
+            GameWorld.mapRectangles.Add(this);
+            type = SolidObjectType.Rectangle;
         }
 
         public override void Initialize(GraphicsDevice graphicsDevice)
@@ -140,16 +140,16 @@ namespace Platformer
             }
 
             // debug
-            if (Game1.MAP_HITBOX) {
-                Maths.DrawLine(spriteBatch, Camera.ConvertPos(new Vector2(position.X, position.Y)), Camera.ConvertPos(new Vector2(position.X + size.X, position.Y)), Color.Black, 1);
-                Maths.DrawLine(spriteBatch, Camera.ConvertPos(new Vector2(position.X, position.Y)), Camera.ConvertPos(new Vector2(position.X, position.Y + size.Y)), Color.Black, 1);
-                Maths.DrawLine(spriteBatch, Camera.ConvertPos(new Vector2(position.X, position.Y + size.Y)), Camera.ConvertPos(new Vector2(position.X + size.X, position.Y + size.Y)), Color.Black, 1);
-                Maths.DrawLine(spriteBatch, Camera.ConvertPos(new Vector2(position.X + size.X, position.Y)), Camera.ConvertPos(new Vector2(position.X + size.X, position.Y + size.Y)), Color.Black, 1);
+            if (GameWorld.MAP_HITBOX) {
+                Maths.DrawLine(spriteBatch, GetVertices(true)[0], GetVertices(true)[1], Color.Black, 1);
+                Maths.DrawLine(spriteBatch, GetVertices(true)[1], GetVertices(true)[2], Color.Black, 1);
+                Maths.DrawLine(spriteBatch, GetVertices(true)[2], GetVertices(true)[3], Color.Black, 1);
+                Maths.DrawLine(spriteBatch, GetVertices(true)[3], GetVertices(true)[0], Color.Black, 1);
             }
         }
     }
 
-    public class SlopeObject : MapObject
+    public class SlopeObject : SolidObject
     {
         private VertexPositionTexture[] vertexData;
         private VertexBuffer vertexBuffer;
@@ -168,8 +168,8 @@ namespace Platformer
             this.size = size;
             this.direction = direction;
             this.SlopeObject = this;
-            Game1.mapSlopes.Add(this);
-            type = SolidObject.Slope;
+            GameWorld.mapSlopes.Add(this);
+            type = SolidObjectType.Slope;
         }
 
         public override void Initialize(GraphicsDevice graphicsDevice)
@@ -218,7 +218,7 @@ namespace Platformer
                 }
             }
             // debug
-            if (Game1.MAP_HITBOX){
+            if (GameWorld.MAP_HITBOX){
                 Maths.DrawLine(spriteBatch, GetVertices(true)[0], GetVertices(true)[1], Color.Black, 1);
                 Maths.DrawLine(spriteBatch, GetVertices(true)[1], GetVertices(true)[2], Color.Black, 1);
                 Maths.DrawLine(spriteBatch, GetVertices(true)[2], GetVertices(true)[0], Color.Black, 1);

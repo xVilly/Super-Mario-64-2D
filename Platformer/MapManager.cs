@@ -22,7 +22,7 @@ namespace Platformer
 
     public struct SolidObjectInfo
     {
-        public SolidObject type;
+        public SolidObjectType type;
         public Vector2 position;
         public Vector2 size;
         public Int16 textureId;
@@ -109,19 +109,19 @@ namespace Platformer
                             byte[] _collision = Maths.SubArray<byte>(result, solidObjectOffset + 21, 1); // collision: 1 byte
                             // Create new solid object info
                             SolidObjectInfo info;
-                            info.type = (SolidObject)BitConverter.ToInt16(_type);
+                            info.type = (SolidObjectType)BitConverter.ToInt16(_type);
                             info.position = new Vector2(BitConverter.ToInt32(_posx), BitConverter.ToInt32(_posy));
                             info.size = new Vector2(BitConverter.ToInt32(_sizex), BitConverter.ToInt32(_sizey));
                             info.textureId = BitConverter.ToInt16(_texture);
                             info.direction = BitConverter.ToBoolean(_direction);
                             info.collision = BitConverter.ToBoolean(_collision);
-                            if (info.type == SolidObject.Rectangle)
+                            if (info.type == SolidObjectType.Rectangle)
                             {
                                 RectObject rect = new RectObject(info.position, info.size);
                                 rect.texture = SpriteManager.GetMapTexture(info.textureId);
                                 rect.collision = info.collision;
                             }
-                            else if (info.type == SolidObject.Slope)
+                            else if (info.type == SolidObjectType.Slope)
                             {
                                 SlopeObject slope = new SlopeObject(info.position, info.size, info.direction);
                                 slope.texture = SpriteManager.GetMapTexture(info.textureId);

@@ -67,7 +67,7 @@ namespace Platformer
                 Active = false;
         }
     }
-    public class Entity
+    public class Player
     {
         // Entity Constants
         public const double MIN_RUNNING_VEL = 3.5;
@@ -109,6 +109,8 @@ namespace Platformer
         public Animator animator;
         private EntityState entityState;
 
+        public Hitbox Hitbox;
+
         // Collision & Physics
         public bool freezePlayer = false;
         public bool horizontalInput = false;
@@ -121,7 +123,7 @@ namespace Platformer
         public bool onGround = false;
         public bool _onGround = false;
         public bool onSlope = false;
-        public MapObject collisionObject = null;
+        public SolidObject collisionObject = null;
         public SlopeObject lastSlopeObject = null;
 
         // Action windows
@@ -174,7 +176,7 @@ namespace Platformer
 
         private int framesAfterDiveLand = 0;
 
-        private MapObject ledgeGrabObject = null;
+        private SolidObject ledgeGrabObject = null;
         private bool ledgeGrabDirection = true;
         private bool ledgeGrab = false;
         private bool ledgeStand = false;
@@ -193,18 +195,20 @@ namespace Platformer
         private long[] actionExhaust = {0, 0, 0, 0 };
         private int[] actionExhaustMs = {0, 0, 0, 0 };
 
-        // Particle engines reserved for player
-        ParticleEngine _particleBonk;
-        ParticleEngine _particleRunDust;
+        // Particle controllers reserved for player
+        ParticleController _particleBonk;
+        ParticleController _particleRunDust;
 
 
-    public Entity(Vector2 startPosition)
+    public Player(Vector2 startPosition)
         {
             position = startPosition;
             size = new Vector2(32, 64);
             scale = new Vector2(1, 1);
             startSize = size;
             crouchSize = new Vector2(size.X, size.Y * 3 / 4);
+            Hitbox = new Hitbox(size);
+
             animator = new Animator(this, 50);
             animator.idle = new Animation(0, 4, 400);
             animator.walk = new Animation(4, 8, 50);
@@ -231,9 +235,9 @@ namespace Platformer
             animator.ledgestand = new Animation(74, 1, 100, false);
             animator.running = new Animation(76, 7, 45);
 
-            _particleBonk = new ParticleEngine(Vector2.Zero);
+            _particleBonk = new ParticleController(Vector2.Zero);
             _particleBonk.CurrentTemplate = ParticleTemplates.bonk;
-            _particleRunDust = new ParticleEngine(Vector2.Zero);
+            _particleRunDust = new ParticleController(Vector2.Zero);
             _particleRunDust.CurrentTemplate = ParticleTemplates.runningDust;
 
             animator.SwitchState(PlayerAnimations.IDLE);
@@ -343,6 +347,8 @@ namespace Platformer
         public void Update()
         {
             animator.Update();
+            Hitbox.Update(position);
+            Hitbox.Size = size;
             #region Player - Camera Input
             if (Camera.GetMode() != CameraMode.LOCKED) {
                 if (InputManager.CameraMode.OnPress())
@@ -383,30 +389,30 @@ namespace Platformer
                 horizontalInput = true;
                 inputDirection = InputManager.HorizontalInput > 0 ? true : false;
                 if (crouch){
-                    if (Math.Abs(velocity.X) < Entity.MAX_WALKING_VEL_CROUCH * Math.Abs(InputManager.HorizontalInput))
+                    if (Math.Abs(velocity.X) < Player.MAX_WALKING_VEL_CROUCH * Math.Abs(InputManager.HorizontalInput))
                         velocity += new Vector2(stepValue * 0.5f * InputManager.HorizontalInput, 0);
                 } else if (!onGround) {
                     velocity += new Vector2(stepValue * 0.15f * InputManager.HorizontalInput, 0);
                 } else {
                     if (entityState != EntityState.RUNNING){
-                        if (Math.Abs(velocity.X) < Entity.MIN_RUNNING_VEL * Math.Abs(InputManager.HorizontalInput))
+                        if (Math.Abs(velocity.X) < Player.MIN_RUNNING_VEL * Math.Abs(InputManager.HorizontalInput))
                             velocity += new Vector2(stepValue * InputManager.HorizontalInput, 0);
                     } else {
-                        if (Math.Abs(velocity.X) < Entity.MAX_RUNNING_VEL * Math.Abs(InputManager.HorizontalInput))
+                        if (Math.Abs(velocity.X) < Player.MAX_RUNNING_VEL * Math.Abs(InputManager.HorizontalInput))
                             velocity += new Vector2(stepValue * InputManager.HorizontalInput, 0);
                     }
                     if (Math.Abs(velocity.X) > 4.0f && dirChangeFrames == 0 && GetState() == EntityState.RUNNING && !Maths.sameSign(velocity.X, InputManager.HorizontalInput))
                         dirChangeFrames = 1;
                 }
             }
-            if (!runningStart && Math.Abs(velocity.X) >= Entity.MIN_RUNNING_VEL - 0.5f && entityState == EntityState.WALK && onGround && Maths.sameSign(InputManager.HorizontalInput, velocity.X)){
+            if (!runningStart && Math.Abs(velocity.X) >= Player.MIN_RUNNING_VEL - 0.5f && entityState == EntityState.WALK && onGround && Maths.sameSign(InputManager.HorizontalInput, velocity.X)){
                 runningStart = true;
                 runningWindow.Start();
-            } else if (runningStart && (Math.Abs(velocity.X) < Entity.MIN_RUNNING_VEL - 0.5f || entityState != EntityState.WALK || !onGround || !Maths.sameSign(InputManager.HorizontalInput, velocity.X))){
+            } else if (runningStart && (Math.Abs(velocity.X) < Player.MIN_RUNNING_VEL - 0.5f || entityState != EntityState.WALK || !onGround || !Maths.sameSign(InputManager.HorizontalInput, velocity.X))){
                 runningStart = false;
                 runningWindow.Active = false;
             } else if (runningStart && !runningWindow.Active &&
-                Math.Abs(velocity.X) >= Entity.MIN_RUNNING_VEL - 0.5f && entityState == EntityState.WALK && onGround && Maths.sameSign(InputManager.HorizontalInput, velocity.X)) {
+                Math.Abs(velocity.X) >= Player.MIN_RUNNING_VEL - 0.5f && entityState == EntityState.WALK && onGround && Maths.sameSign(InputManager.HorizontalInput, velocity.X)) {
                 runningStart = false;
                 ChangeState(EntityState.RUNNING);
                 velocity.X += velocity.X > 0 ? 1.0f : -1.0f;
@@ -419,7 +425,7 @@ namespace Platformer
 
 
             // Action: Dirchange (Player quick turn on ground)
-            if (dirChangeFrames >= 1 && dirChangeFrames < Entity.DirChangeWindow)
+            if (dirChangeFrames >= 1 && dirChangeFrames < Player.DirChangeWindow)
             {
                 dirChangeFrames++;
                 if (GetState() != EntityState.SIDEFLIP)
@@ -435,7 +441,7 @@ namespace Platformer
                         direction = true;
                 }
             }
-            else if (dirChangeFrames == Entity.DirChangeWindow)
+            else if (dirChangeFrames == Player.DirChangeWindow)
             {
                 frictionMultiplier = 1.0f;
                 dirChangeFrames = 0;
@@ -465,7 +471,7 @@ namespace Platformer
                             if (landWindow.Active && Math.Abs(velocity.X) >= 2.5) {
                                 jumpSequence = -1;
                                 landWindow.Active = false;
-                                velocity += new Vector2(0, (float)-(Entity.JUMP_FORCE * 1.85f));
+                                velocity += new Vector2(0, (float)-(Player.JUMP_FORCE * 1.85f));
                                 if (direction)
                                     velocity.X += 1.0f;
                                 else
@@ -479,7 +485,7 @@ namespace Platformer
                             }
                         }
                         else {
-                            velocity += new Vector2(0, (float)-(Entity.JUMP_FORCE * 0.5f));
+                            velocity += new Vector2(0, (float)-(Player.JUMP_FORCE * 0.5f));
                             jumpWindow.Start();
                             ChangeState(EntityState.JUMP);
                         }
@@ -489,7 +495,7 @@ namespace Platformer
                             if (landWindow.Active && Math.Abs(velocity.X) >= 2.5) {
                                 jumpSequence = -1;
                                 landWindow.Active = false;
-                                velocity += new Vector2(0, (float)-(Entity.JUMP_FORCE * 1.85f));
+                                velocity += new Vector2(0, (float)-(Player.JUMP_FORCE * 1.85f));
                                 if (direction)
                                     velocity.X += 1.0f;
                                 else
@@ -503,7 +509,7 @@ namespace Platformer
                             }
                         }
                         else {
-                            velocity += new Vector2(0, (float)-(Entity.JUMP_FORCE * 0.8f));
+                            velocity += new Vector2(0, (float)-(Player.JUMP_FORCE * 0.8f));
                             jumpWindow.Start();
                             ChangeState(EntityState.JUMP);
                         }
@@ -516,7 +522,7 @@ namespace Platformer
                     if (jumpSequence == 1 && landWindow.Active) {
                         jumpSequence = 2;
                         landWindow.Active = false;
-                        velocity += new Vector2(0, (float)-(Entity.JUMP_FORCE * 1.35f));
+                        velocity += new Vector2(0, (float)-(Player.JUMP_FORCE * 1.35f));
                         jumpWindow.Start();
                         ChangeState(EntityState.JUMP);
                     }
@@ -524,7 +530,7 @@ namespace Platformer
                     else if (jumpSequence == 3) {
                         if (landWindow.Active && Math.Abs(velocity.X) >= 2.5) {
                             landWindow.Active = false;
-                            velocity += new Vector2(0, (float)-(Entity.JUMP_FORCE * 1.85f));
+                            velocity += new Vector2(0, (float)-(Player.JUMP_FORCE * 1.85f));
                             if (direction)
                                 velocity.X += 1.0f;
                             else
@@ -537,7 +543,7 @@ namespace Platformer
                            landWindow.Active = false;
                         }
                     } else {
-                        velocity += new Vector2(0, (float)-(Entity.JUMP_FORCE * 1.0f));
+                        velocity += new Vector2(0, (float)-(Player.JUMP_FORCE * 1.0f));
                         jumpWindow.Start();
                         ChangeState(EntityState.JUMP);
                     }
@@ -546,19 +552,19 @@ namespace Platformer
             if (InputManager.JumpButton.IsPressed() && jumpWindow.Active && velocity.Y < 0)
             {
                 if (!blockDefaultMovementInput)
-                    velocity += new Vector2(0, (float)-(Entity.JUMP_FORCE / 30.0f));
+                    velocity += new Vector2(0, (float)-(Player.JUMP_FORCE / 30.0f));
             }
 
 
             // Action: Sideflip
-            if (InputManager.JumpButton.OnPress() && onGround && dirChangeFrames >= 1 && dirChangeFrames < Entity.DirChangeWindow
+            if (InputManager.JumpButton.OnPress() && onGround && dirChangeFrames >= 1 && dirChangeFrames < Player.DirChangeWindow
                 && !HasActionExhaust(0)
                 && !crouch && !diving && !postDive && !postDiveRoll && !pounding && !punching && !kicking && !postPound && !slideKick && !ledgeGrab && !ledgeStand) {
                 frictionMultiplier = 1.0f;
                 blockDefaultMovementInput = true;
                 dirChangeFrames = 1;
                 ChangeState(EntityState.SIDEFLIP);
-                velocity += new Vector2(0, (float)-(Entity.JUMP_FORCE * 1.75f));
+                velocity += new Vector2(0, (float)-(Player.JUMP_FORCE * 1.75f));
                 if (direction)
                     velocity.X = -3.0f;
                 else
@@ -568,7 +574,7 @@ namespace Platformer
 
             // Ceiling check for crouch actions
             bool canStand = true;
-            foreach (RectObject rect in Game1.mapRectangles)
+            foreach (RectObject rect in GameWorld.mapRectangles)
             {
                 if (Maths.PointInRectangle(new Vector2(GetHeadPoint().X, position.Y - (startSize.Y - crouchSize.Y)), new Rectangle(rect.position.ToPoint(), rect.size.ToPoint())))
                     canStand = false;
@@ -610,19 +616,19 @@ namespace Platformer
                 if (wallJumpFrame == 1) {
                     velocity.X = speedBonus * wallJumpSpeed * 1.1f * xDir;
                     velocity.Y = -5;
-                    Game1.DEBUG_WALLKICK = "1 FRAME (PERFECT)";
+                    GameWorld.DEBUG_WALLKICK = "1 FRAME (PERFECT)";
                 } else if (wallJumpFrame == 2) {
                     velocity.X = speedBonus * 4.0f * xDir;
                     velocity.Y = -5;
-                    Game1.DEBUG_WALLKICK = "2 FRAME";
+                    GameWorld.DEBUG_WALLKICK = "2 FRAME";
                 } else if (wallJumpFrame == 3) {
                     velocity.X = speedBonus * 3.0f * xDir;
                     velocity.Y = -4;
-                    Game1.DEBUG_WALLKICK = "3 FRAME";
+                    GameWorld.DEBUG_WALLKICK = "3 FRAME";
                 } else {
                     velocity.X = speedBonus * 2.0f * xDir;
                     velocity.Y = -3;
-                    Game1.DEBUG_WALLKICK = "4+ FRAME";
+                    GameWorld.DEBUG_WALLKICK = "4+ FRAME";
                 }
             }
             if (!wallJumpWindow.Active && wallJump)
@@ -673,7 +679,7 @@ namespace Platformer
             {
                 ChangeState(EntityState.CROUCH);
                 poundFreeze = false;
-                gravityMultiplier = (float)Entity.POUND_GRAVITYMULT;
+                gravityMultiplier = (float)Player.POUND_GRAVITYMULT;
                 blockDefaultMovementInput = false;
                 jumpSequence = -1;
                 landWindow.Active = false;
@@ -766,18 +772,18 @@ namespace Platformer
                 blockDefaultMovementInput = true;
                 jumpSequence = -1;
                 if (onGround)
-                    velocity.Y = (float)-Entity.JUMP_FORCE;
+                    velocity.Y = (float)-Player.JUMP_FORCE;
                 else {
                     if (velocity.Y < 0)
                         velocity.Y *= 0.85f;
                     else if (velocity.Y >= 0)
                         velocity.Y *= 0.75f;
                 }
-                gravityMultiplier = (float)Entity.DIVE_GRAVITYMULT;
+                gravityMultiplier = (float)Player.DIVE_GRAVITYMULT;
                 if (velocity.X >= 0)
-                    velocity.X += (float)Entity.DIVE_SPEED;
+                    velocity.X += (float)Player.DIVE_SPEED;
                 else
-                    velocity.X -= (float)Entity.DIVE_SPEED;
+                    velocity.X -= (float)Player.DIVE_SPEED;
             } 
             else if (onGround && diving)
             {
@@ -821,7 +827,7 @@ namespace Platformer
                     multiplier = 2.0f;
                 else if (goodRollout)
                     multiplier = 1.5f;
-                velocity += new Vector2(0, (float)-(Entity.JUMP_FORCE * 0.5f * multiplier));
+                velocity += new Vector2(0, (float)-(Player.JUMP_FORCE * 0.5f * multiplier));
                 if (direction)
                     velocity.X += 1.5f * multiplier;
                 else
@@ -847,13 +853,13 @@ namespace Platformer
             {
                 pounding = false;
                 gravityMultiplier = 1.0f;
-                if (poundSpeed > Entity.POSTPOUND_SPEED){
+                if (poundSpeed > Player.POSTPOUND_SPEED){
                     postPoundWindow.Start();
                     blockDefaultMovementInput = true;
                     postPound = true;
-                    if (poundSpeed > Entity.POSTPOUND_SPEED * 1.5)
+                    if (poundSpeed > Player.POSTPOUND_SPEED * 1.5)
                         velocity.Y = -2;
-                    else if (poundSpeed > Entity.POSTPOUND_SPEED * 2.0)
+                    else if (poundSpeed > Player.POSTPOUND_SPEED * 2.0)
                         velocity.Y = -3;
                     else
                         velocity.Y = -1;
@@ -936,15 +942,15 @@ namespace Platformer
             #endregion
             #region Player - Physics
             // ->Gravity
-            if (velocity.Y < Entity.MAX_VERTICAL_VEL && !blockGravity)
-                velocity.Y += (float)Entity.GRAVITY * gravityMultiplier;
+            if (velocity.Y < Player.MAX_VERTICAL_VEL && !blockGravity)
+                velocity.Y += (float)Player.GRAVITY * gravityMultiplier;
             // ->Ground friction
             if (onGround && !blockFriction)
             {
                 if (velocity.X > 0.2)
-                    velocity.X -= (float)Entity.GROUND_FRICTION * collisionObject.Friction * frictionMultiplier;
+                    velocity.X -= (float)Player.GROUND_FRICTION * collisionObject.Friction * frictionMultiplier;
                 else if (velocity.X < -0.2)
-                    velocity.X += (float)Entity.GROUND_FRICTION * collisionObject.Friction * frictionMultiplier;
+                    velocity.X += (float)Player.GROUND_FRICTION * collisionObject.Friction * frictionMultiplier;
                 else
                     velocity.X = 0;
             }
@@ -952,9 +958,9 @@ namespace Platformer
             else if (!onGround && !blockFriction)
             {
                 if (velocity.X > 0.05)
-                    velocity.X -= (float)Entity.AIR_FRICTION;
+                    velocity.X -= (float)Player.AIR_FRICTION;
                 else if (velocity.X < -0.05)
-                    velocity.X += (float)Entity.AIR_FRICTION;
+                    velocity.X += (float)Player.AIR_FRICTION;
                 else
                     velocity.X = 0;
             }
@@ -1041,7 +1047,7 @@ namespace Platformer
                 if (lastSlopeObject == null)
                 {
                     // Jump normally, give control
-                    velocity += new Vector2(0, (float)-(Entity.JUMP_FORCE * 1.0f));
+                    velocity += new Vector2(0, (float)-(Player.JUMP_FORCE * 1.0f));
                     jumpWindow.Start();
                     ChangeState(EntityState.JUMP);
                     blockDefaultMovementInput = false;
@@ -1053,7 +1059,7 @@ namespace Platformer
                     {
                         // Jump slightly higher, small X vel boost
                         velocity.X *= 1.1f;
-                        velocity += new Vector2(0, (float)-(Entity.JUMP_FORCE * 1.2f));
+                        velocity += new Vector2(0, (float)-(Player.JUMP_FORCE * 1.2f));
                         jumpWindow.Start();
                         ChangeState(EntityState.JUMP);
                         blockDefaultMovementInput = false;
@@ -1067,14 +1073,14 @@ namespace Platformer
 
 
 
-            if (velocity.X > Entity.MAX_HORIZONTAL_VEL)
-                velocity.X = (float)Entity.MAX_HORIZONTAL_VEL;
-            else if (velocity.X < -Entity.MAX_HORIZONTAL_VEL)
-                velocity.X = (float)-Entity.MAX_HORIZONTAL_VEL;
-            if (velocity.Y > Entity.MAX_HORIZONTAL_VEL)
-                velocity.Y = (float)Entity.MAX_HORIZONTAL_VEL;
-            else if (velocity.Y < -Entity.MAX_VERTICAL_VEL)
-                velocity.Y = (float)-Entity.MAX_VERTICAL_VEL;
+            if (velocity.X > Player.MAX_HORIZONTAL_VEL)
+                velocity.X = (float)Player.MAX_HORIZONTAL_VEL;
+            else if (velocity.X < -Player.MAX_HORIZONTAL_VEL)
+                velocity.X = (float)-Player.MAX_HORIZONTAL_VEL;
+            if (velocity.Y > Player.MAX_HORIZONTAL_VEL)
+                velocity.Y = (float)Player.MAX_HORIZONTAL_VEL;
+            else if (velocity.Y < -Player.MAX_VERTICAL_VEL)
+                velocity.Y = (float)-Player.MAX_VERTICAL_VEL;
             #endregion
 
             _onGround = onGround;
@@ -1099,11 +1105,11 @@ namespace Platformer
 
 
             // change entity state
-            if (Math.Abs(velocity.X) > 0.5 && Math.Abs(velocity.X) < Entity.MIN_RUNNING_VEL + 0.5f && GetState() != EntityState.WALK && onGround && !blockDefaultMovementInput && !crouch)
+            if (Math.Abs(velocity.X) > 0.5 && Math.Abs(velocity.X) < Player.MIN_RUNNING_VEL + 0.5f && GetState() != EntityState.WALK && onGround && !blockDefaultMovementInput && !crouch)
             {
                 ChangeState(EntityState.WALK);
             }
-            else if (Math.Abs(velocity.X) > Entity.MIN_RUNNING_VEL + 0.5f && onGround && GetState() != EntityState.RUNNING && !blockDefaultMovementInput && !crouch)
+            else if (Math.Abs(velocity.X) > Player.MIN_RUNNING_VEL + 0.5f && onGround && GetState() != EntityState.RUNNING && !blockDefaultMovementInput && !crouch)
             {
                 ChangeState(EntityState.RUNNING);
             }
@@ -1133,20 +1139,20 @@ namespace Platformer
 
         public void CollisionCheck()
         {
-            // 1. Apply physics, save old position
+            // 1. Apply physics, store old position
             Vector2 oldPos = position;
             Vector2 oldPosF = GetMovementPoint();
             Vector2 oldPosH = GetHeadPoint();
             if (!freezePlayer)
                 position += velocity;
             // 2. Loop through solid objects
-            foreach (MapObject obj in Game1.mapObjects)
+            foreach (SolidObject obj in GameWorld.solidObjects)
             {
                 if (!obj.collision)
                     continue;
 
                 // 3. Check player collision with rectangle (Feet and head)
-                if (obj.type == SolidObject.Rectangle)
+                if (obj.type == SolidObjectType.Rectangle)
                 {
                     Rectangle collisionRect = new Rectangle(obj.position.ToPoint(), obj.size.ToPoint());
                     bool _feetC = Maths.PointInRectangle(GetMovementPoint(), collisionRect);
@@ -1211,7 +1217,7 @@ namespace Platformer
                             position += _pushBack;
                     }
                 }
-                else if (obj.type == SolidObject.Slope)
+                else if (obj.type == SolidObjectType.Slope)
                 {
                     SlopeObject slope = obj.GetSlopeObject();
                     bool _feetC = Maths.PointInTriangle(GetMovementPoint(), slope.GetVertices()[0], slope.GetVertices()[1], slope.GetVertices()[2]);
@@ -1323,7 +1329,7 @@ namespace Platformer
             }
         }
 
-        public void OnCollision(CollisionType type, MapObject obj)
+        public void OnCollision(CollisionType type, SolidObject obj)
         {
             switch (type)
             {
@@ -1331,7 +1337,7 @@ namespace Platformer
                     if (!_onGround)
                     {
                         // Ledge grab
-                        if (obj.size.Y > 20 && obj.size.X > 20 && direction && GetHeadPoint().Y < obj.position.Y && GetMovementPoint().Y > obj.position.Y && Math.Abs(GetHeadPoint().Y - obj.position.Y) < 5 && Math.Abs(GetMovementPoint().X - obj.position.X) < 1 && Math.Abs(velocity.X) < 5 && InputManager.HorizontalInput > 0 && MapObject.GetObjectFromPos(new Vector2(obj.position.X + (size.X/2), obj.position.Y - size.Y)) == null && MapObject.GetObjectFromPos(new Vector2(obj.position.X + (size.X/2), obj.position.Y - 1)) == null && !diving && !postDive && !postDiveRoll && !kicking && !punching && !crouch)
+                        if (obj.size.Y > 20 && obj.size.X > 20 && direction && GetHeadPoint().Y < obj.position.Y && GetMovementPoint().Y > obj.position.Y && Math.Abs(GetHeadPoint().Y - obj.position.Y) < 5 && Math.Abs(GetMovementPoint().X - obj.position.X) < 1 && Math.Abs(velocity.X) < 5 && InputManager.HorizontalInput > 0 && SolidObject.GetObjectFromPos(new Vector2(obj.position.X + (size.X/2), obj.position.Y - size.Y)) == null && SolidObject.GetObjectFromPos(new Vector2(obj.position.X + (size.X/2), obj.position.Y - 1)) == null && !diving && !postDive && !postDiveRoll && !kicking && !punching && !crouch)
                         {
                             ledgeGrabDirection = true;
                             ledgeGrab = true;
@@ -1377,7 +1383,7 @@ namespace Platformer
                     {
                         // Auto-step system
                         Vector2 futureHeadPoint = GetHeadPoint() + (obj.position - GetMovementPoint());
-                        if (GetMovementPoint().Y > obj.position.Y && Math.Abs(GetMovementPoint().Y - obj.position.Y) <= AutoStepLimit && MapObject.GetObjectFromPos(futureHeadPoint, true) == null)
+                        if (GetMovementPoint().Y > obj.position.Y && Math.Abs(GetMovementPoint().Y - obj.position.Y) <= AutoStepLimit && SolidObject.GetObjectFromPos(futureHeadPoint, true) == null)
                         {
                             position += (obj.position - GetMovementPoint());
                             velocity.X *= 0.5f;
@@ -1391,7 +1397,7 @@ namespace Platformer
                 case CollisionType.WALL_LEFT:
                     if (!_onGround)
                     {
-                        if (obj.size.Y > 20 && obj.size.X > 20 && !direction && GetHeadPoint().Y < obj.position.Y && GetMovementPoint().Y > obj.position.Y && Math.Abs(GetHeadPoint().Y - obj.position.Y) < 5 && Math.Abs(GetMovementPoint().X - (obj.position.X + obj.size.X)) < 1 && Math.Abs(velocity.X) < 5 && InputManager.HorizontalInput < 0 && MapObject.GetObjectFromPos(new Vector2(obj.position.X + obj.size.X - (size.X / 2), obj.position.Y - size.Y)) == null && MapObject.GetObjectFromPos(new Vector2(obj.position.X + obj.size.X - (size.X / 2), obj.position.Y - 1)) == null && !diving && !postDive && !postDiveRoll && !kicking && !punching && !crouch)
+                        if (obj.size.Y > 20 && obj.size.X > 20 && !direction && GetHeadPoint().Y < obj.position.Y && GetMovementPoint().Y > obj.position.Y && Math.Abs(GetHeadPoint().Y - obj.position.Y) < 5 && Math.Abs(GetMovementPoint().X - (obj.position.X + obj.size.X)) < 1 && Math.Abs(velocity.X) < 5 && InputManager.HorizontalInput < 0 && SolidObject.GetObjectFromPos(new Vector2(obj.position.X + obj.size.X - (size.X / 2), obj.position.Y - size.Y)) == null && SolidObject.GetObjectFromPos(new Vector2(obj.position.X + obj.size.X - (size.X / 2), obj.position.Y - 1)) == null && !diving && !postDive && !postDiveRoll && !kicking && !punching && !crouch)
                         {
                             ledgeGrabDirection = false;
                             ledgeGrab = true;
@@ -1439,7 +1445,7 @@ namespace Platformer
                     {
                         // Auto-step system
                         Vector2 futureHeadPoint = GetHeadPoint() + (new Vector2(obj.position.X + obj.size.X, obj.position.Y) - GetMovementPoint());
-                        if (GetMovementPoint().Y > obj.position.Y && Math.Abs(GetMovementPoint().Y - obj.position.Y) <= AutoStepLimit && MapObject.GetObjectFromPos(futureHeadPoint, true) == null)
+                        if (GetMovementPoint().Y > obj.position.Y && Math.Abs(GetMovementPoint().Y - obj.position.Y) <= AutoStepLimit && SolidObject.GetObjectFromPos(futureHeadPoint, true) == null)
                         {
                             position += (new Vector2(obj.position.X + obj.size.X, obj.position.Y) - GetMovementPoint());
                             velocity.X *= 0.5f;
@@ -1486,7 +1492,7 @@ namespace Platformer
 
         public void Draw(SpriteBatch spriteBatch, Texture2D defaultTex)
         {
-            if (Game1.ENTITY_HITBOX)
+            if (GameWorld.ENTITY_HITBOX)
             {
                 // czerwona otoczka hitboxa ( debug )
                 spriteBatch.Draw(defaultTex, Camera.ConvertRect(new Rectangle((int)position.X, (int)position.Y, (int)size.X, 1)), Color.Red);

@@ -19,17 +19,15 @@ namespace Platformer
         // Level Name - must be same as filename
         public static string Name;
 
-        // Author
         public static string Author;
 
-        // Date
         public static string Date;
 
-        // Editor
         public static string Editor;
 
-        // Player Default Spawn Position
         public static Vector2 StartPoint;
+
+        public static Skybox SkyBox;
 
         public static bool IsLoaded()
         {
@@ -38,13 +36,14 @@ namespace Platformer
         public static void Load()
         {
             loaded = true;
+            SkyBox = new Skybox(Color.CornflowerBlue, 0);
         }
         public static void Unload()
         {
             loaded = false;
-            Game1.mapObjects.Clear();
-            Game1.mapSlopes.Clear();
-            Game1.mapRectangles.Clear();
+            GameWorld.solidObjects.Clear();
+            GameWorld.mapSlopes.Clear();
+            GameWorld.mapRectangles.Clear();
         }
     }
 }

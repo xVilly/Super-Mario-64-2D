@@ -18,7 +18,7 @@ namespace Platformer
 
         public static List<SoundEffect> soundEffectsList = new List<SoundEffect>();
 
-        public static void LoadSoundEffects(Game1 game)
+        public static void LoadSoundEffects(GameManager game)
         {
             foreach (string str in soundEffects)
             {

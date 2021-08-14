@@ -126,13 +126,38 @@ namespace Platformer
             "star",
         };
 
+        private static string[] SkyboxTextures = {
+            "castlegrounds",
+        };
+
+        private static string[] ObjectTextures =
+        {
+            "coin",
+        };
+
+        private static string[] GUITextures =
+        {
+            "cam",
+            "c-up",
+            "c-down",
+            "c-lock",
+            "lakitu",
+            "mario",
+        };
+
         private static List<Texture2D> LoadedEntityTextures = new List<Texture2D>();
 
         private static List<Texture2D> LoadedMapTextures = new List<Texture2D>();
 
         private static List<Texture2D> LoadedParticleTextures = new List<Texture2D>();
 
-        public static void LoadTextures(Game1 game)
+        private static List<Texture2D> LoadedSkyboxTextures = new List<Texture2D>();
+
+        private static List<Texture2D> LoadedObjectTextures = new List<Texture2D>();
+
+        private static List<Texture2D> LoadedGUITextures = new List<Texture2D>();
+
+        public static void LoadTextures(GameManager game)
         {
             foreach(string str in EntitySprites)
             {
@@ -145,6 +170,18 @@ namespace Platformer
             foreach(string str in ParticleTextures)
             {
                 LoadedParticleTextures.Add(game.Content.Load<Texture2D>("Sprites/Particles/" + str));
+            }
+            foreach(string str in SkyboxTextures)
+            {
+                LoadedSkyboxTextures.Add(game.Content.Load<Texture2D>("Sprites/Skyboxes/" + str));
+            }
+            foreach(string str in ObjectTextures)
+            {
+                LoadedObjectTextures.Add(game.Content.Load<Texture2D>("Sprites/Objects/" + str));
+            }
+            foreach (string str in GUITextures)
+            {
+                LoadedGUITextures.Add(game.Content.Load<Texture2D>("Sprites/GUI/" + str));
             }
         }
         
@@ -167,6 +204,27 @@ namespace Platformer
             if (id >= LoadedParticleTextures.Count)
                 return null;
             return LoadedParticleTextures[id];
+        }
+
+        public static Texture2D GetSkyboxTexture(int id)
+        {
+            if (id >= LoadedSkyboxTextures.Count)
+                return null;
+            return LoadedSkyboxTextures[id];
+        }
+
+        public static Texture2D GetObjectTexture(int id)
+        {
+            if (id >= LoadedObjectTextures.Count)
+                return null;
+            return LoadedObjectTextures[id];
+        }
+
+        public static Texture2D GetGUITexture(int id)
+        {
+            if (id >= LoadedGUITextures.Count)
+                return null;
+            return LoadedGUITextures[id];
         }
     }
 }

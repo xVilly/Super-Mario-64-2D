@@ -50,7 +50,7 @@ namespace Platformer
     {
         public int defaultSpeed;
         private PlayerAnimations state;
-        public Entity actor;
+        public Player actor;
         public Animation idle;
         public Animation walk;
         public Animation jump;
@@ -82,7 +82,7 @@ namespace Platformer
         private long lastUpdate = 0;
         private int currentFrame = 0;
         private bool stop = false;
-        public Animator(Entity _actor, int _speed)
+        public Animator(Player _actor, int _speed)
         {
             actor = _actor;
             speed = _speed;

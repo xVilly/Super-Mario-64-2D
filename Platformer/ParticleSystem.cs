@@ -99,7 +99,7 @@ namespace Platformer
         }
     }
 
-    public class ParticleEngine
+    public class ParticleController
     {
         public bool Active = true;
         public bool SpawnUpdate = false;
@@ -109,12 +109,12 @@ namespace Platformer
         private List<Particle> particles;
         
 
-        public ParticleEngine(Vector2 location)
+        public ParticleController(Vector2 location)
         {
             EmitterLocation = location;
             this.particles = new List<Particle>();
             random = new Random();
-            Game1.particleEngines.Add(this);
+            GameWorld.particleControllers.Add(this);
         }
 
         public void Update()
